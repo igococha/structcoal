@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><beast beautitemplate='Standard' beautistatus='' namespace="beast.core:beast.evolution.alignment:beast.phylodynamics.epidemiology:beast.phylodynamics.logger:beast.phylodynamics.model:beast.evolution.tree.coalescent:beast.core.util:beast.evolution.nuc:beast.evolution.operators:beast.evolution.sitemodel:beast.evolution.substitutionmodel:beast.evolution.likelihood" version="2.0">
+	
+	<!-- specify seqeunces here -->
+	<data id="sequences" name="alignment">
+		<sequence id="sequence_1" taxon="sequence_1" totalcount="4" value="ATGC"/>
+	</data>	
+
+	<!-- specify sampling dates her (are not used by the approximate coalescent directly) -->
+	<traitSet id="dateTrait.t:sequences" spec="beast.evolution.tree.TraitSet" traitname="date">		
+		sequence_1=2016,(add other sequences)
+		<taxa spec="TaxonSet" alignment='@sequences'/>
+	</traitSet>
+
+	<!-- specify sampling locations her (if they are not specified, the approximate coalescent splits the names after _ and uses the last group as sampling location) -->
+	<traitSet id="typeTraitSet" spec="beast.evolution.tree.TraitSet" traitname="type">		
+		EU856897sequence_1=2016,(add other sequences)
+		<taxa spec="TaxonSet" alignment='@sequences'/>
+	</traitSet>
+
+
+<map name="Uniform" >beast.math.distributions.Uniform</map>
+<map name="Exponential" >beast.math.distributions.Exponential</map>
+<map name="LogNormal" >beast.math.distributions.LogNormalDistributionModel</map>
+<map name="Normal" >beast.math.distributions.Normal</map>
+<map name="Beta" >beast.math.distributions.Beta</map>
+<map name="Gamma" >beast.math.distributions.Gamma</map>
+<map name="LaplaceDistribution" >beast.math.distributions.LaplaceDistribution</map>
+<map name="prior" >beast.math.distributions.Prior</map>
+<map name="InverseGamma" >beast.math.distributions.InverseGamma</map>
+<map name="OneOnX" >beast.math.distributions.OneOnX</map>
+
+<!-- use for fixed trees 
+<tree spec="beast.util.TreeParser" id="tree" IsLabelledNewick="true" adjustTipHeights="false" trait="traitset" newick="someTree;"/>
+-->
+
+<run id="mcmc" spec="MCMC" chainLength="100000000">
+	<state id="state" storeEvery="5000">
+		<!-- Tree -->
+		<tree id="tree" name="stateNode">
+			<trait idref="dateTrait.t:sequences"/>
+			<taxonset spec="TaxonSet" alignment='@sequences'/>
+		</tree>
+
+		<!-- Tree Inference parameters-->
+		<parameter id="clockRate.c:sequences" name="stateNode">0.001</parameter>
+		<parameter id="freqParameter.s:sequences" dimension="4" lower="0.0" name="stateNode" upper="1.0">0.25</parameter>
+		<parameter id="kappa.s:example" lower="0.0" name="stateNode">2.0</parameter>
+		<parameter id="popSize.t:sequences" name="stateNode">3</parameter>
+
+		<!-- ARUDSIR STATE NODES-->
+		<parameter id="epi.S0" lower="0.0" upper="1.0" name="stateNode">0.5</parameter>
+		<parameter id="epi.I0" lower="0.0" upper="1.0" name="stateNode">0.01</parameter>
+		<parameter id="popSize" lower="0.0" upper="1000000" name="stateNode">20158.0234      19950.1412      20070.3928</parameter>
+		<parameter id="epi.seas" lower="1.0" upper="1000000" name="stateNode">106  106  106</parameter>
+		<parameter id="epi.rec" name="stateNode">73</parameter>
+		<parameter id="epi.imLoss" upper="140" name="stateNode">2</parameter>
+		<parameter id="epi.origin" name="stateNode">50.0</parameter>
+		<parameter id="epi.dim" name="stateNode">3</parameter>
+		<parameter id="epi.tRates" name="stateNode">146  146  146</parameter>
+		<parameter id="epi.mRates" upper="140" name="stateNode">0.01 0.01 0.01 0.01 0.01 0.01</parameter>
+		<parameter id="epi.timeStep" name="stateNode">0.015</parameter>
+		<parameter id="epi.offset" lower="1" upper="1000" name="stateNode">326.4264 348.5291 343.8878</parameter>
+		<parameter id="epi.migrationFromOutside" lower="2.0" name="stateNode">10 10 10</parameter>
+	</state>
+
+
+	<!-- Initialize Tree based on the coalescent constant -->
+	<init id="RandomTree.t:sequences" spec="beast.evolution.tree.RandomTree" estimate="false" initial="@tree" taxa="@sequences">
+		<populationModel id="ConstantPopulation0.t:sequences" spec="ConstantPopulation">
+			<parameter id="randomPopSize.t:sequences" name="popSize">1.0</parameter>
+		</populationModel>
+	</init>
+
+
+	<distribution id="posterior" spec="util.CompoundDistribution">
+
+		<distribution id="prior" spec="util.CompoundDistribution">
+		     <!-- Alignment Priors-->
+			<prior id="ClockPrior.c:sequences" name="distribution" x="@clockRate.c:sequences">
+				<LogNormal id="LogN.0" name="distr" M="0" S="4"/>
+			</prior>
+
+			<prior id="KappaPrior.s:H3N2" name="distribution" x="@kappa.s:example">
+				<LogNormal id="LogNormalDistributionModel.0" name="distr">
+					<parameter id="RealParameter.0" estimate="false" name="M">1.0</parameter>
+					<parameter id="RealParameter.01" estimate="false" name="S">1.25</parameter>
+				</LogNormal>
+			</prior>
+
+			<!-- Population Dynamics Priors-->
+			<prior id="migrationRates.prior" name="distribution" x="@epi.mRates">
+				<Exponential id="Expo.0" name="distr"/>
+			</prior>
+			<prior id="Seasonal.prior" name="distribution" x="@epi.seas">
+				<OneOnX id="OneOnX.0" name="distr"/>
+			</prior>
+			<prior id="pSize.prior" name="distribution" x="@popSize">
+				<OneOnX id="OneOnX.1" name="distr"/>
+			</prior>
+			<prior id="Imloss.prior" name="distribution" x="@epi.imLoss">
+				<Exponential id="Expo.1" name="distr"/>
+			</prior>
+
+		</distribution>
+
+          <distribution id="likelihood" spec="util.CompoundDistribution">
+
+			<distribution id="treeLikelihood.sequences" spec="TreeLikelihood" data="@sequences" tree="@tree">
+				<siteModel id="SiteModel.s:H3N2" spec="SiteModel" gammaCategoryCount="3">
+					<parameter id="mutationRate.s:H3N2" estimate="false" name="mutationRate">1.0</parameter>
+					<parameter id="gammaShape.s:H3N2" estimate="false" name="shape">1.0</parameter>
+					<parameter id="proportionInvariant.s:H3N2" estimate="false" lower="0.0" name="proportionInvariant" upper="1.0">0.001</parameter>
+					<substModel id="hky.s:H3N2" spec="HKY" kappa="@kappa.s:example">
+					    <frequencies id="estimatedFreqs.s:H3N2" spec="Frequencies" frequencies="@freqParameter.s:sequences"/>
+					</substModel>
+					</siteModel>
+				<branchRateModel id="StrictClock.c:sequences" spec="beast.evolution.branchratemodel.StrictClockModel" clock.rate="@clockRate.c:sequences"/>
+			</distribution>
+
+
+			<distribution id="coalescent" spec="StructCoalVolzDensity" typeTrait="@typeTraitSet">
+				<structuredTreeIntervals spec='StructuredTreeIntervals' id='TreeIntervals' tree='@tree'/>
+				<epiModel spec="EpidemiologicalModel" id="SIR"  isSeasonal="true" isConstant="false" isExponential="false" wavelength="1.0">
+					 <ratesInput spec="RatesInputModel" id="Rates" migrationFromOutside="@epi.migrationFromOutside" transmissionRate="@epi.tRates" migrationRate="@epi.mRates"
+							   recoveryRate="@epi.rec" immunityLoss="@epi.imLoss" dimension="@epi.dim" susceptible="@epi.S0" infected="@epi.I0" popSize="@popSize" migrationAsTransmission="false">
+					 </ratesInput>
+					 <seasonalStrength idref="epi.seas"/>
+					 <origin idref="epi.origin"/>
+					 <timeStep idref="epi.timeStep"/>
+					 <seasonalOffset idref="epi.offset"/>
+				</epiModel>
+			</distribution>
+		</distribution>
+  
+	</distribution>
+
+	<!-- ARUDSIR Operators-->
+	<operator id="migRate" spec="ScaleOperator" scaleFactor=".8" weight="3" optimise="true" parameter="@epi.mRates"/>
+	<operator id="pSize" spec="ScaleOperator" scaleFactor=".8" weight="3" optimise="true" parameter="@popSize"/>
+	<operator id="seasonal" spec="ScaleOperator" scaleFactor=".8" weight="3" optimise="true" parameter="@epi.seas"/>
+	<operator id="offset" spec="ScaleOperator" scaleFactor=".8" weight="3" optimise="true" parameter="@epi.offset"/>
+	<operator id="immunityLoss" spec="ScaleOperator" scaleFactor=".8" weight="3" optimise="true" parameter="@epi.imLoss"/>
+
+	<!-- clock operators-->
+    <operator id="StrictClockRateScaler.c:sequences" spec="ScaleOperator" parameter="@clockRate.c:sequences" scaleFactor="0.75" weight="3.0"/>
+
+	<!-- site operators-->
+	<operator id="FrequenciesExchanger.s:sequences" spec="DeltaExchangeOperator" delta="0.01" weight="0.1">
+	   <parameter idref="freqParameter.s:sequences"/>
+	</operator>
+
+	<operator id="KappaScaler" spec="ScaleOperator" parameter="@kappa.s:example" scaleFactor="0.5" weight="0.1"/>
+
+	<!-- tree operators-->
+	<operator id="TreeScaler" spec="ScaleOperator" scaleFactor="0.5" tree="@tree" weight="3.0"/>
+	<operator id="TreeRootScaler" spec="ScaleOperator" rootOnly="true" scaleFactor="0.5" tree="@tree" weight="3.0"/>
+	<operator id="UniformOperator" spec="Uniform" tree="@tree" weight="30.0"/>
+	<operator id="SubtreeSlide" spec="SubtreeSlide" tree="@tree" weight="15.0"/>
+	<operator id="Narrow" spec="Exchange" tree="@tree" weight="15.0"/>
+	<operator id="Wide" spec="Exchange" isNarrow="false" tree="@tree" weight="3.0"/>
+	<operator id="WilsonBalding" spec="WilsonBalding" tree="@tree" weight="3.0"/>
+
+
+  	<!-- loggers -->
+	<logger id="tracelog" fileName="example.log" logEvery="1000" model="@posterior" sanitiseHeaders="true" sort="smart">
+		<log idref="posterior"/>
+		<log idref="coalescent"/>
+		<log idref="treeLikelihood.sequences"/>
+		<log idref="prior"/>
+		<!-- LOG ARUDSIR -->
+		<log idref="popSize"/>
+		<log idref="epi.mRates"/>
+		<log idref="epi.seas"/>
+		<log idref="epi.offset"/>
+		<log idref="epi.imLoss"/>
+		<log idref="clockRate.c:sequences"/>
+		<log idref="freqParameter.s:sequences"/>
+		<log idref="popSize.t:sequences"/>
+		<log idref="kappa.s:example"/>
+	</logger>
+
+
+	<logger id="screenlog" logEvery="1000">
+		<log idref="posterior"/>
+		<log idref="prior"/>
+		<log idref="coalescent"/>
+		<ESS spec='ESS' name='log' arg="@treeLikelihood.sequences"/>
+	</logger>
+
+	<logger id="trajLogger" fileName="example.traj" logEvery="25000">
+		<log id="lalal" spec="SIRTrajectoryLogger" epiModel="@SIR"/>
+	</logger>
+
+	<logger id="probtreelog.t:MSABahlData4" fileName="example.trees" logEvery="50000" mode="tree">
+		<log id="PropTreeWithMetaDataLogger.t:MSABahlData4" spec="StructuredTreeLogger" tree="@tree" volzDensity="@coalescent" typeTrait="@typeTraitSet" maxState="false"/>
+	</logger>
+
+</run>
+</beast>
